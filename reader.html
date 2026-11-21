@@ -1,0 +1,1819 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Читалка-Спринтер</title>
+<style>
+  /* Layout: a reading stage centered like an open book page, with a fixed
+     bottom e-reader toolbar for controls. Palette: deep emerald velvet,
+     a warm gold accent for emphasis and highlights, ivory-white for the
+     main reading text — a single committed dark identity (like an
+     illuminated plaque), so it stays the same in both theme settings. */
+  :root{
+    --bg:#06251b;
+    --bg-2:#0a3526;
+    --surface:#0c3c2b;
+    --ink:#f4efe0;
+    --muted:#a9c9ba;
+    --accent:#c7a034;
+    --accent-2:#e0bd52;
+    --gilt:#d4af37;
+    --line:#1c5340;
+    --danger:#e2836a;
+    --word-fill:#fafaf7;
+    --word-stroke:#141414;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#06251b;
+      --bg-2:#0a3526;
+      --surface:#0c3c2b;
+      --ink:#f4efe0;
+      --muted:#a9c9ba;
+      --accent:#c7a034;
+      --accent-2:#e0bd52;
+      --gilt:#d4af37;
+      --line:#1c5340;
+      --danger:#e2836a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#06251b;
+    --bg-2:#0a3526;
+    --surface:#0c3c2b;
+    --ink:#f4efe0;
+    --muted:#a9c9ba;
+    --accent:#c7a034;
+    --accent-2:#e0bd52;
+    --gilt:#d4af37;
+    --line:#1c5340;
+    --danger:#e2836a;
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:
+      radial-gradient(1100px 700px at 50% -8%, var(--bg-2), transparent 62%),
+      radial-gradient(900px 600px at 85% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Manrope', system-ui, sans-serif;
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    padding-left:max(16px, env(safe-area-inset-left,0px));
+    padding-right:max(16px, env(safe-area-inset-right,0px));
+  }
+  html,body{height:100%;}
+
+  h1,h2,.serif{font-family:'Literata', Georgia, 'Times New Roman', serif;}
+
+  header{
+    padding-block:18px 8px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  header h1{
+    font-size:1.25rem;
+    font-weight:700;
+    margin:0;
+    letter-spacing:.01em;
+  }
+  header .tag{
+    font-size:.72rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.14em;
+  }
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    padding-bottom:150px;
+    min-width:0;
+  }
+
+  /* ---- Loader card ---- */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+  }
+  .loader{
+    display:grid;
+    gap:12px;
+  }
+  .drop{
+    border:2px dashed var(--line);
+    border-radius:12px;
+    padding:22px 14px;
+    text-align:center;
+    color:var(--muted);
+    font-size:.88rem;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .drop.drag{
+    border-color:var(--accent);
+    background:color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drop strong{color:var(--ink); font-weight:700;}
+  input[type=file]{display:none;}
+  textarea#pasteBox{
+    width:100%;
+    min-height:90px;
+    resize:vertical;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--bg-2);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:.88rem;
+    padding:10px 12px;
+  }
+  .loader-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .hint{font-size:.76rem; color:var(--muted); line-height:1.5;}
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+  }
+  .btn{
+    background:var(--accent);
+    color:#fdf8ec;
+    border-radius:9px;
+    padding:9px 16px;
+    font-size:.85rem;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .btn:hover{background:var(--accent-2);}
+  .btn.ghost{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  .btn.ghost:hover{border-color:var(--accent);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+
+  /* ---- Reading stage ---- */
+  .stage-wrap{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-height:280px;
+  }
+  .stage{
+    flex:1;
+    position:relative;
+    background:
+      linear-gradient(180deg, var(--surface), var(--bg-2));
+    border:1px solid var(--line);
+    border-radius:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    min-height:220px;
+  }
+  .stage::before, .stage::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    width:1px;
+    background:var(--line);
+    opacity:.6;
+  }
+  .guide{
+    position:absolute;
+    top:10px; bottom:10px; left:50%;
+    width:1px;
+    background:var(--accent);
+    opacity:.18;
+  }
+  .word{
+    font-family:'Literata', Georgia, serif;
+    font-weight:800;
+    font-size:var(--wordsize, 4.6rem);
+    line-height:1.15;
+    letter-spacing:.01em;
+    color:var(--word-fill);
+    -webkit-text-stroke:0.045em var(--word-stroke);
+    paint-order:stroke fill;
+    text-shadow:
+      0 2px 2px color-mix(in srgb, var(--word-stroke) 45%, transparent),
+      0 10px 22px color-mix(in srgb, var(--word-stroke) 30%, transparent);
+    text-align:center;
+    white-space:normal;
+    overflow-wrap:normal;
+    max-width:94%;
+    max-height:94%;
+    user-select:none;
+    transform-origin:center center;
+    will-change:transform;
+  }
+  .word .orp{
+    text-decoration:underline;
+    text-decoration-thickness:0.05em;
+    text-underline-offset:0.12em;
+  }
+  .corner-progress{
+    position:absolute;
+    bottom:14px;
+    left:18px;
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    font-size:.72rem;
+    color:var(--muted);
+    opacity:.5;
+    pointer-events:none;
+    font-variant-numeric:tabular-nums;
+    user-select:none;
+  }
+  .empty-msg{
+    color:var(--muted);
+    font-size:.95rem;
+    text-align:center;
+    padding:0 20px;
+    font-family:'Literata', serif;
+  }
+
+  .meta-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:.74rem;
+    color:var(--muted);
+    margin-top:8px;
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .progress{
+    height:6px;
+    border-radius:4px;
+    background:var(--line);
+    margin-top:6px;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--accent);
+    width:0%;
+  }
+
+  /* ---- Bottom dock ---- */
+  .dock{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    background:var(--surface);
+    border-top:1px solid var(--line);
+    padding:12px max(16px, env(safe-area-inset-left,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-right,0px));
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    z-index:5;
+  }
+  .dock-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .transport{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .round{
+    width:42px; height:42px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-2);
+    color:var(--ink);
+    border:1px solid var(--line);
+    font-size:1rem;
+  }
+  .round:hover{border-color:var(--accent);}
+  .round.play{
+    width:52px; height:52px;
+    background:var(--accent);
+    color:#fdf8ec;
+    border:none;
+    font-size:1.2rem;
+  }
+  .round.play:hover{background:var(--accent-2);}
+
+  .speed-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:.78rem;
+    color:var(--muted);
+    flex:1;
+    min-width:160px;
+  }
+  .speed-group input[type=range]{
+    flex:1;
+    accent-color:var(--accent);
+  }
+  .speed-val{
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    color:var(--ink);
+    font-weight:700;
+    width:70px;
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .opt-group{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  select, .opt-group .round{
+    font-size:.78rem;
+  }
+  select{
+    background:var(--bg-2);
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 8px;
+  }
+
+  .theme-dots{display:flex; gap:6px;}
+  .dot{
+    width:24px; height:24px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    cursor:pointer;
+  }
+  .dot[data-t="light"]{background:#f3ead4;}
+  .dot[data-t="dark"]{background:#17130e;}
+  .dot[data-t="system"]{background:linear-gradient(135deg,#f3ead4 50%, #17130e 50%);}
+  .dot.active{border-color:var(--gilt);}
+
+  kbd{
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:1px 5px;
+    font-size:.72rem;
+    font-family:'JetBrains Mono', monospace;
+  }
+
+  @media (max-width:560px){
+    .dock-row{gap:10px;}
+    .speed-group{min-width:0; width:100%;}
+    header h1{font-size:1.1rem;}
+  }
+
+  /* ---- Immersive full-screen reading: minimal chrome, big centered text ---- */
+  .phone-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:7px 12px;
+    font-size:.78rem;
+    color:var(--ink);
+    font-weight:700;
+  }
+  .phone-btn:hover{border-color:var(--accent);}
+  #immersiveExitBtn{
+    display:none;
+    position:absolute;
+    top:12px; right:12px;
+    z-index:6;
+    width:34px; height:34px;
+    font-size:.95rem;
+    background:color-mix(in srgb, var(--bg) 70%, transparent);
+  }
+  body.immersive header{display:none;}
+  body.immersive .loader{display:none;}
+  body.immersive main{padding-bottom:170px;}
+  body.immersive .stage{border-radius:0; border:none;}
+  #immersiveExitBtn.show{display:flex;}
+
+  .chunk-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .appearance-group{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .pill-set{display:flex; gap:6px;}
+  .pill-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:34px; height:34px;
+    border-radius:9px;
+    border:2px solid var(--line);
+    background:var(--swatch, var(--bg-2));
+    color:var(--swatch-ink, var(--ink));
+    font-size:.78rem;
+    font-weight:700;
+    cursor:pointer;
+    padding:0;
+  }
+  .pill-btn:hover{border-color:var(--accent);}
+  .pill-btn.active{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);}
+  .chunk-group input[type=number]{
+    width:56px;
+    text-align:center;
+    background:var(--bg-2);
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 4px;
+    font-family:inherit;
+    font-size:.85rem;
+  }
+  .size-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:150px;
+    flex:1;
+  }
+  .size-group input[type=range]{
+    flex:1;
+    accent-color:var(--accent);
+  }
+  .size-val{
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    color:var(--ink);
+    font-size:.74rem;
+    width:38px;
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ---- Library ---- */
+  .library-list{
+    display:grid;
+    gap:8px;
+  }
+  .library-empty{
+    color:var(--muted);
+    font-size:.84rem;
+    padding:6px 2px;
+  }
+  .library-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .library-item .info{
+    flex:1;
+    min-width:0;
+  }
+  .library-item .name{
+    font-weight:700;
+    font-size:.88rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .library-item .sub{
+    font-size:.74rem;
+    color:var(--muted);
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  .bookmark-item{align-items:flex-start;}
+  .bookmark-item .name{font-family:'Manrope', sans-serif; white-space:normal;}
+  .bookmark-snippet{
+    font-family:'Literata', Georgia, serif;
+    font-size:.82rem;
+    line-height:1.5;
+    display:-webkit-box;
+    -webkit-line-clamp:4;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    margin-top:2px;
+  }
+  .library-item .actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .library-item .actions button{
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:.78rem;
+    font-weight:700;
+  }
+  .library-item .open-btn{background:var(--accent); color:#fdf8ec;}
+  .library-item .open-btn:hover{background:var(--accent-2);}
+  .library-item .del-btn{background:transparent; border:1px solid var(--line); color:var(--danger);}
+  .library-item .del-btn:hover{border-color:var(--danger);}
+  #libraryBtn{display:none;}
+  #libraryBtn.show{display:flex;}
+
+  /* ---- Full page view ---- */
+  .page-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:40;
+    background:var(--bg);
+    flex-direction:column;
+  }
+  .page-overlay.show{display:flex;}
+  .page-overlay-bar{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:max(14px, env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) 12px max(16px, env(safe-area-inset-left,0px));
+    border-bottom:1px solid var(--line);
+    background:var(--surface);
+    flex-shrink:0;
+  }
+  .page-overlay-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .page-size-ctl{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1;
+    min-width:140px;
+  }
+  .page-size-ctl input[type=range]{flex:1; accent-color:var(--accent);}
+  .page-nav{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .page-nav input[type=number]{
+    width:56px;
+    text-align:center;
+    background:var(--bg-2);
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 4px;
+    font-family:inherit;
+    font-size:.85rem;
+  }
+  .page-nav .of{
+    font-size:.78rem;
+    color:var(--muted);
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+  }
+  .page-scroll{
+    flex:1;
+    overflow-y:auto;
+    padding:28px max(20px, env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(20px, env(safe-area-inset-left,0px));
+  }
+  .page-text{
+    max-width:70ch;
+    margin:0 auto;
+    font-family:'Literata', Georgia, serif;
+    font-size:1.15rem;
+    line-height:1.85;
+    color:var(--ink);
+  }
+  .page-text span{
+    transition:background .15s;
+    border-radius:3px;
+    padding:0 1px;
+  }
+  .page-text span.page-current{
+    background:color-mix(in srgb, var(--gilt) 32%, transparent);
+    font-weight:700;
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--gilt) 45%, transparent);
+  }
+
+  .voice-row{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;align-items:stretch;gap:8px}
+  .voice-title{font-weight:800;color:var(--accent-2);font-size:.88rem}
+  .voice-buttons,.voice-settings{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .voice-buttons button{min-height:36px;font-size:.78rem;padding:7px 10px}
+  .voice-settings{font-size:.78rem;color:var(--muted);justify-content:space-between}
+  .voice-settings label{display:flex;align-items:center;gap:6px}
+  .voice-settings select{max-width:130px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px}
+  .voice-settings input{width:90px;accent-color:var(--accent)}
+  .voice-status{font-size:.72rem;color:var(--muted);min-height:1em}
+  @media(max-width:520px){.voice-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.voice-buttons button{width:100%;padding:7px 4px}.voice-settings{justify-content:flex-start;gap:14px}}
+
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:wght@500;700;800&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@500;700&family=Caveat:wght@600;700&display=swap">
+
+<header>
+  <div>
+    <h1>Читалка-Спринтер</h1>
+    <div class="tag">офлайн чтение по одному слову</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <button class="phone-btn" id="libraryBtn" title="К списку сохранённых книг">📚 Библиотека</button>
+    <button class="phone-btn" id="bookmarksBtn" title="Список закладок">🔖 Закладки</button>
+    <button class="phone-btn" id="immersiveBtn" title="Читать на весь экран, без лишнего">⛶ На весь экран</button>
+    <button class="phone-btn" id="pageViewBtn" title="Показать страницу текста целиком">📖 Страница целиком</button>
+    <div class="theme-dots" id="themeDots">
+      <span class="dot" data-t="light" title="Светлая"></span>
+      <span class="dot" data-t="dark" title="Тёмная"></span>
+      <span class="dot active" data-t="system" title="Как в системе"></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="libraryCard">
+    <h2 class="serif" style="margin:0 0 10px; font-size:1.05rem;">Ваша библиотека</h2>
+    <div class="library-list" id="libraryList">
+      <div class="library-empty">Пока нет сохранённых книг — загрузите файл или вставьте текст ниже, и он сохранится здесь.</div>
+    </div>
+  </div>
+
+  <div class="card" id="bookmarksCard" style="display:none;">
+    <h2 class="serif" style="margin:0 0 10px; font-size:1.05rem;">Ваши закладки</h2>
+    <div class="library-list" id="bookmarksList">
+      <div class="library-empty">Пока нет закладок — откройте «Страницу целиком» и нажмите «🔖 Добавить закладку».</div>
+    </div>
+  </div>
+
+  <div class="card loader" id="loaderCard">
+    <div class="drop" id="dropZone">
+      <strong>Перетащите файл сюда</strong> или нажмите, чтобы выбрать<br>
+      поддерживаются <strong>.txt</strong>, <strong>.md</strong> и <strong>.pdf</strong>
+      <input type="file" id="fileInput" accept=".txt,.md,.pdf,text/plain">
+    </div>
+    <div class="loader-row">
+      <span class="hint" style="flex:1 1 220px;">или вставьте текст книги прямо сюда:</span>
+    </div>
+    <textarea id="pasteBox" placeholder="Вставьте текст книги или главы..."></textarea>
+    <div class="loader-row">
+      <button class="btn" id="loadPasted">Загрузить вставленный текст</button>
+      <span class="hint" id="loadStatus"></span>
+    </div>
+    <div class="hint">
+      Файлы .txt и .md читаются полностью офлайн. Для .pdf один раз потребуется
+      интернет, чтобы браузер подгрузил библиотеку чтения PDF — после этого
+      страница продолжит работать из кэша браузера. Если интернета совсem
+      не будет, конвертируйте книгу в .txt заранее или вставляйте текст вручную.
+    </div>
+  </div>
+
+  <div class="stage-wrap" id="stageWrap" style="display:none;">
+    <div class="stage" id="stage">
+      <button class="round" id="immersiveExitBtn" title="Выйти из полноэкранного чтения">✕</button>
+      <div class="guide"></div>
+      <div class="word" id="wordDisplay"></div>
+      <div class="corner-progress" id="cornerProgress"></div>
+      <div class="empty-msg" id="emptyMsg" style="display:none;">Загрузите книгу выше, чтобы начать чтение</div>
+    </div>
+    <div class="meta-row">
+      <span id="wordCounter">0 / 0</span>
+      <span id="timeLeft">осталось: —</span>
+    </div>
+    <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</main>
+
+<div class="page-overlay" id="pageOverlay">
+  <div class="page-overlay-bar">
+    <div class="page-overlay-row">
+      <button class="btn ghost" id="pageBackBtn">← Назад</button>
+      <div class="page-nav">
+        <button class="round" id="pagePrevBtn" title="Предыдущая страница">◀</button>
+        <input type="number" id="pageNumInput" min="1" value="1">
+        <span class="of" id="pageOfLabel">из 1</span>
+        <button class="round" id="pageNextBtn" title="Следующая страница">▶</button>
+      </div>
+      <button class="btn ghost" id="pageBookmarkBtn">🔖 Добавить закладку</button>
+      <button class="phone-btn" id="pageImmersiveBtn" title="Развернуть на весь экран">⛶ На весь экран</button>
+    </div>
+    <div class="page-overlay-row">
+      <div class="page-size-ctl">
+        <span class="hint">размер</span>
+        <input type="range" id="pageSizeSlider" min="0.7" max="5" step="0.05" value="1.15">
+      </div>
+      <button class="btn" id="pageResumeBtn">Читать отсюда ▶</button>
+    </div>
+  </div>
+  <div class="page-scroll" id="pageScroll">
+    <div class="page-text" id="pageText"></div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="dock-row">
+    <div class="transport">
+      <button class="round" id="backBtn" title="Назад на 10 слов (←)">⏮</button>
+      <button class="round play" id="playBtn" title="Старт/пауза (Пробел)">▶</button>
+      <button class="round" id="fwdBtn" title="Вперёд на 10 слов (→)">⏭</button>
+    </div>
+    <div class="speed-group">
+      <span>скорость</span>
+      <input type="range" id="speedSlider" min="100" max="900" step="10" value="300">
+      <span class="speed-val" id="speedVal">300 сл/мин</span>
+    </div>
+  </div>
+  <div class="dock-row">
+    <div class="chunk-group">
+      <span class="hint">слов за раз</span>
+      <input type="number" id="chunkInput" min="1" max="50" step="1" value="1">
+    </div>
+    <div class="size-group">
+      <button class="round" id="sizeDown" title="Меньше (−)">А−</button>
+      <input type="range" id="sizeSlider" min="1" max="30" step="0.2" value="4.6">
+      <span class="size-val" id="sizeVal">4.6</span>
+      <button class="round" id="sizeUp" title="Больше (+)">А+</button>
+    </div>
+    <div class="opt-group">
+      <select id="fontSelect">
+        <option value="serif">Литературный (с засечками)</option>
+        <option value="sans">Современный (без засечек)</option>
+        <option value="hand">Рукописный</option>
+        <option value="bold">Жирный акцент</option>
+        <option value="mono">Печатная машинка</option>
+      </select>
+    </div>
+  </div>
+  <div class="dock-row">
+    <div class="appearance-group">
+      <span class="hint">буквы</span>
+      <div class="pill-set" id="letterColorSet">
+        <button class="pill-btn active" data-letter="white" style="--swatch:#f4f4f2; --swatch-ink:#111" title="Белые буквы, тонкая чёрная обводка">Б</button>
+        <button class="pill-btn" data-letter="black" style="--swatch:#111; --swatch-ink:#f4f4f2" title="Чёрные буквы, тонкая белая обводка">Ч</button>
+      </div>
+    </div>
+    <div class="appearance-group">
+      <span class="hint">фон</span>
+      <div class="pill-set" id="bgColorSet">
+        <button class="pill-btn active" data-bg="green" style="--swatch:#0c3c2b; --swatch-ink:#f4efe0" title="Зелёный фон">З</button>
+        <button class="pill-btn" data-bg="white" style="--swatch:#ffffff; --swatch-ink:#111" title="Белый фон">Б</button>
+        <button class="pill-btn" data-bg="black" style="--swatch:#000; --swatch-ink:#f4f4f2" title="Чёрный фон">Ч</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock-row voice-row" id="voiceControls">
+    <div class="voice-title">🔊 Озвучивание книги</div>
+    <div class="voice-buttons">
+      <button class="btn ghost" id="voiceBack" title="Назад на 10 слов">⏮ −10</button>
+      <button class="btn" id="voicePlay">▶ Читать</button>
+      <button class="btn ghost" id="voicePause">⏸ Пауза</button>
+      <button class="btn ghost" id="voiceForward" title="Вперёд на 10 слов">+10 ⏭</button>
+      <button class="btn ghost" id="voiceStop">■ Стоп</button>
+    </div>
+    <div class="voice-settings">
+      <label>Язык <select id="voiceLanguage"><option value="auto">Авто</option><option value="ru-RU">Русский</option><option value="ar">Арабский</option><option value="en-US">Английский</option></select></label>
+      <label>Скорость <input type="range" id="voiceRate" min="0.6" max="1.5" step="0.1" value="1"><span id="voiceRateValue">1×</span></label>
+    </div>
+    <div class="voice-status" id="voiceStatus" aria-live="polite">Нажмите «Читать», чтобы приложение озвучило книгу</div>
+  </div>
+
+  <div class="dock-row">
+    <span class="hint">
+      <kbd>Пробел</kbd> пауза · <kbd>←</kbd><kbd>→</kbd> блок слов · <kbd>↑</kbd><kbd>↓</kbd> скорость
+    </span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var state = {
+    words: [],
+    index: 0,
+    playing: false,
+    wpm: 300,
+    wordSize: 4.6,
+    fontMode: 'serif',
+    chunk: 1,
+    immersive: false,
+    pageFontSize: 1.15,
+    pageNum: 1,
+    timer: null,
+    bookKey: null,
+    bookName: null
+  };
+  var WORDS_PER_PAGE = 220;
+
+  var el = {
+    stage: document.getElementById('stage'),
+    dropZone: document.getElementById('dropZone'),
+    fileInput: document.getElementById('fileInput'),
+    pasteBox: document.getElementById('pasteBox'),
+    loadPasted: document.getElementById('loadPasted'),
+    loadStatus: document.getElementById('loadStatus'),
+    loaderCard: document.getElementById('loaderCard'),
+    libraryCard: document.getElementById('libraryCard'),
+    libraryList: document.getElementById('libraryList'),
+    libraryBtn: document.getElementById('libraryBtn'),
+    bookmarksBtn: document.getElementById('bookmarksBtn'),
+    bookmarksCard: document.getElementById('bookmarksCard'),
+    bookmarksList: document.getElementById('bookmarksList'),
+    stageWrap: document.getElementById('stageWrap'),
+    wordDisplay: document.getElementById('wordDisplay'),
+    cornerProgress: document.getElementById('cornerProgress'),
+    emptyMsg: document.getElementById('emptyMsg'),
+    wordCounter: document.getElementById('wordCounter'),
+    timeLeft: document.getElementById('timeLeft'),
+    progressBar: document.getElementById('progressBar'),
+    progressFill: document.getElementById('progressFill'),
+    playBtn: document.getElementById('playBtn'),
+    backBtn: document.getElementById('backBtn'),
+    fwdBtn: document.getElementById('fwdBtn'),
+    speedSlider: document.getElementById('speedSlider'),
+    speedVal: document.getElementById('speedVal'),
+    sizeDown: document.getElementById('sizeDown'),
+    sizeUp: document.getElementById('sizeUp'),
+    sizeSlider: document.getElementById('sizeSlider'),
+    letterColorSet: document.getElementById('letterColorSet'),
+    bgColorSet: document.getElementById('bgColorSet'),
+    sizeVal: document.getElementById('sizeVal'),
+    chunkInput: document.getElementById('chunkInput'),
+    fontSelect: document.getElementById('fontSelect'),
+    themeDots: document.getElementById('themeDots'),
+    immersiveBtn: document.getElementById('immersiveBtn'),
+    immersiveExitBtn: document.getElementById('immersiveExitBtn'),
+    pageImmersiveBtn: document.getElementById('pageImmersiveBtn'),
+    pageViewBtn: document.getElementById('pageViewBtn'),
+    pageOverlay: document.getElementById('pageOverlay'),
+    pageText: document.getElementById('pageText'),
+    pageScroll: document.getElementById('pageScroll'),
+    pageBackBtn: document.getElementById('pageBackBtn'),
+    pageResumeBtn: document.getElementById('pageResumeBtn'),
+    pageSizeSlider: document.getElementById('pageSizeSlider'),
+    pagePrevBtn: document.getElementById('pagePrevBtn'),
+    pageNextBtn: document.getElementById('pageNextBtn'),
+    pageNumInput: document.getElementById('pageNumInput'),
+    pageOfLabel: document.getElementById('pageOfLabel'),
+    pageBookmarkBtn: document.getElementById('pageBookmarkBtn'),
+    pageClickedWord: null,
+    voicePlay: document.getElementById('voicePlay'),
+    voicePause: document.getElementById('voicePause'),
+    voiceStop: document.getElementById('voiceStop'),
+    voiceBack: document.getElementById('voiceBack'),
+    voiceForward: document.getElementById('voiceForward'),
+    voiceLanguage: document.getElementById('voiceLanguage'),
+    voiceRate: document.getElementById('voiceRate'),
+    voiceRateValue: document.getElementById('voiceRateValue'),
+    voiceStatus: document.getElementById('voiceStatus')
+  };
+
+  function safeGet(key){
+    try{ return localStorage.getItem(key); }catch(e){ return null; }
+  }
+  function safeSet(key, val){
+    try{ localStorage.setItem(key, val); }catch(e){}
+  }
+
+  /* ---------- Theme ---------- */
+  (function initTheme(){
+    var saved = safeGet('reader_theme') || 'system';
+    applyTheme(saved);
+  })();
+  function applyTheme(t){
+    if(t === 'system'){ document.documentElement.removeAttribute('data-theme'); }
+    else { document.documentElement.setAttribute('data-theme', t); }
+    Array.prototype.forEach.call(el.themeDots.querySelectorAll('.dot'), function(d){
+      d.classList.toggle('active', d.dataset.t === t);
+    });
+    safeSet('reader_theme', t);
+  }
+  el.themeDots.addEventListener('click', function(e){
+    var dot = e.target.closest('.dot');
+    if(dot) applyTheme(dot.dataset.t);
+  });
+
+  var FONT_MAP = {
+    serif: { family: "'Literata', Georgia, 'Times New Roman', serif", weight: '700', style: 'normal' },
+    sans:  { family: "'Manrope', system-ui, sans-serif", weight: '700', style: 'normal' },
+    hand:  { family: "'Caveat', 'Comic Sans MS', cursive", weight: '700', style: 'normal' },
+    bold:  { family: "'Manrope', system-ui, sans-serif", weight: '800', style: 'normal' },
+    mono:  { family: "'JetBrains Mono', ui-monospace, monospace", weight: '700', style: 'normal' }
+  };
+  function applyFont(mode){
+    var f = FONT_MAP[mode] || FONT_MAP.serif;
+    el.wordDisplay.style.fontFamily = f.family;
+    el.wordDisplay.style.fontWeight = f.weight;
+    el.wordDisplay.style.fontStyle = f.style;
+  }
+
+  /* ---------- Settings restore ---------- */
+  (function initSettings(){
+    var wpm = parseInt(safeGet('reader_wpm') || '300', 10);
+    var size = parseFloat(safeGet('reader_size') || '4.6');
+    var font = safeGet('reader_font') || 'serif';
+    var chunk = parseInt(safeGet('reader_chunk') || '1', 10);
+    state.wpm = wpm; state.wordSize = size; state.fontMode = font; state.chunk = chunk;
+    el.speedSlider.value = wpm;
+    el.speedVal.textContent = wpm + ' сл/мин';
+    el.sizeSlider.value = size;
+    el.sizeVal.textContent = size.toFixed(1);
+    document.documentElement.style.setProperty('--wordsize', size + 'rem');
+    el.fontSelect.value = font;
+    el.chunkInput.value = String(chunk);
+    applyFont(font);
+  })();
+
+  /* ---------- Tokenizing (works for any language) ---------- */
+  function tokenize(text){
+    text = text.replace(/\r\n/g, '\n');
+    // Languages written without spaces (Chinese, Japanese, Korean) need
+    // per-character "words" instead of whitespace splitting.
+    var cjk = text.match(/[぀-ヿ㐀-鿿가-힯豈-﫿]/g) || [];
+    if(cjk.length > text.length * 0.15){
+      return Array.from(text).filter(function(ch){ return !/\s/.test(ch); });
+    }
+    return text
+      .split(/\s+/)
+      .map(function(w){ return w.trim(); })
+      .filter(function(w){ return w.length > 0; });
+  }
+
+  function loadText(text, key, displayName, forcedIndex){
+    state.words = tokenize(text);
+    state.bookKey = key || 'pasted:' + text.length;
+    state.bookName = displayName || state.bookKey;
+    var savedIndex = parseInt(safeGet('reader_pos_' + state.bookKey) || '0', 10);
+    state.index = (savedIndex >= 0 && savedIndex < state.words.length) ? savedIndex : 0;
+    if(typeof forcedIndex === 'number' && forcedIndex >= 0 && forcedIndex < state.words.length){
+      state.index = forcedIndex;
+    }
+    el.loaderCard.style.display = 'none';
+    el.libraryCard.style.display = 'none';
+    el.bookmarksCard.style.display = 'none';
+    el.libraryBtn.classList.add('show');
+    el.stageWrap.style.display = 'flex';
+    el.emptyMsg.style.display = 'none';
+    pause();
+    renderWord();
+    saveToLibrary(state.bookKey, state.bookName, text, state.words.length);
+    safeSet('reader_last_book_id', state.bookKey);
+  }
+
+  /* ---------- Library (saved books, stored in IndexedDB) ---------- */
+  function openLibraryDB(){
+    return new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error('no-indexeddb')); return; }
+      var req = indexedDB.open('sprintReaderLibrary', 2);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if(!db.objectStoreNames.contains('books')){
+          db.createObjectStore('books', { keyPath: 'id' });
+        }
+        if(!db.objectStoreNames.contains('bookmarks')){
+          db.createObjectStore('bookmarks', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = function(e){ resolve(e.target.result); };
+      req.onerror = function(e){ reject(e); };
+    });
+  }
+  function dbPutBook(record){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('books', 'readwrite');
+        tx.objectStore('books').put(record);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function dbGetAllBooks(){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('books', 'readonly');
+        var req = tx.objectStore('books').getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
+        req.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function dbGetBook(id){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('books', 'readonly');
+        var req = tx.objectStore('books').get(id);
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function dbDeleteBook(id){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('books', 'readwrite');
+        tx.objectStore('books').delete(id);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+
+  /* ---------- Bookmarks (saved reading positions, stored in IndexedDB) ---------- */
+  function dbAddBookmark(record){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('bookmarks', 'readwrite');
+        tx.objectStore('bookmarks').add(record);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function dbGetAllBookmarks(){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('bookmarks', 'readonly');
+        var req = tx.objectStore('bookmarks').getAll();
+        req.onsuccess = function(){ resolve(req.result || []); };
+        req.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+  function dbDeleteBookmark(id){
+    return openLibraryDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction('bookmarks', 'readwrite');
+        tx.objectStore('bookmarks').delete(id);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(e){ reject(e); };
+      });
+    });
+  }
+
+  function refreshBookmarksList(){
+    dbGetAllBookmarks().then(function(list){
+      list.sort(function(a, b){ return (b.savedAt || 0) - (a.savedAt || 0); });
+      renderBookmarksList(list);
+    }).catch(function(){
+      el.bookmarksList.innerHTML = '<div class="library-empty">Закладки недоступны в этом браузере.</div>';
+    });
+  }
+
+  function renderBookmarksList(list){
+    if(!list.length){
+      el.bookmarksList.innerHTML = '<div class="library-empty">Пока нет закладок — откройте «Страницу целиком» и нажмите «🔖 Добавить закладку».</div>';
+      return;
+    }
+    el.bookmarksList.innerHTML = list.map(function(bm){
+      var snippet = bm.pageText || bm.preview || '';
+      return '<div class="library-item bookmark-item">' +
+        '<div class="info">' +
+          '<div class="name">' + escapeHtml(bm.bookName || 'Книга') + ' · страница ' + bm.pageNumber + '</div>' +
+          '<div class="sub bookmark-snippet">«' + escapeHtml(snippet) + '»</div>' +
+        '</div>' +
+        '<div class="actions">' +
+          '<button class="open-btn" data-action="openbm" data-id="' + bm.id + '">Открыть</button>' +
+          '<button class="del-btn" data-action="delbm" data-id="' + bm.id + '">✕</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  el.bookmarksList.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    var id = parseInt(btn.dataset.id, 10);
+    if(btn.dataset.action === 'openbm'){
+      dbGetAllBookmarks().then(function(list){
+        var bm = list.find(function(b){ return b.id === id; });
+        if(!bm) return;
+        if(bm.bookId === state.bookKey){
+          el.bookmarksCard.style.display = 'none';
+          el.loaderCard.style.display = 'none';
+          el.libraryBtn.classList.add('show');
+          el.stageWrap.style.display = 'flex';
+          state.index = bm.wordIndex;
+          pause();
+          renderWord();
+        } else {
+          dbGetBook(bm.bookId).then(function(rec){
+            if(rec) loadText(rec.text, rec.id, rec.name, bm.wordIndex);
+          });
+        }
+      });
+    } else if(btn.dataset.action === 'delbm'){
+      dbDeleteBookmark(id).then(refreshBookmarksList);
+    }
+  });
+
+  function showBookmarksHome(){
+    pause();
+    el.stageWrap.style.display = 'none';
+    el.loaderCard.style.display = 'grid';
+    el.libraryCard.style.display = 'none';
+    el.bookmarksCard.style.display = 'block';
+    refreshBookmarksList();
+  }
+  el.bookmarksBtn.addEventListener('click', showBookmarksHome);
+
+  function saveToLibrary(id, name, text, wordsCount){
+    dbPutBook({ id: id, name: name, text: text, words: wordsCount, savedAt: Date.now() })
+      .then(refreshLibraryList)
+      .catch(function(){ /* storage unavailable; reading still works without a library */ });
+  }
+
+  function refreshLibraryList(){
+    dbGetAllBooks().then(function(list){
+      list.sort(function(a, b){ return (b.savedAt || 0) - (a.savedAt || 0); });
+      renderLibraryList(list);
+    }).catch(function(){
+      el.libraryList.innerHTML = '<div class="library-empty">Хранилище книг недоступно в этом браузере.</div>';
+    });
+  }
+
+  function renderLibraryList(list){
+    if(!list.length){
+      el.libraryList.innerHTML = '<div class="library-empty">Пока нет сохранённых книг — загрузите файл или вставьте текст ниже, и он сохранится здесь.</div>';
+      return;
+    }
+    el.libraryList.innerHTML = list.map(function(rec){
+      var pos = parseInt(safeGet('reader_pos_' + rec.id) || '0', 10);
+      var pct = rec.words ? Math.round((pos / Math.max(1, rec.words - 1)) * 100) : 0;
+      pct = Math.max(0, Math.min(100, pct));
+      return '<div class="library-item">' +
+        '<div class="info">' +
+          '<div class="name">' + escapeHtml(rec.name) + '</div>' +
+          '<div class="sub">' + rec.words + ' слов · прочитано ' + pct + '%</div>' +
+        '</div>' +
+        '<div class="actions">' +
+          '<button class="open-btn" data-action="open" data-id="' + escapeHtml(String(rec.id)) + '">Открыть</button>' +
+          '<button class="del-btn" data-action="del" data-id="' + escapeHtml(String(rec.id)) + '">✕</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  el.libraryList.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    var id = btn.dataset.id;
+    if(btn.dataset.action === 'open'){
+      dbGetBook(id).then(function(rec){
+        if(rec) loadText(rec.text, rec.id, rec.name);
+      });
+    } else if(btn.dataset.action === 'del'){
+      dbDeleteBook(id).then(function(){
+        try{ localStorage.removeItem('reader_pos_' + id); }catch(ex){}
+        refreshLibraryList();
+      });
+    }
+  });
+
+  function showLibraryHome(){
+    pause();
+    el.stageWrap.style.display = 'none';
+    el.loaderCard.style.display = 'grid';
+    el.libraryCard.style.display = 'block';
+    el.bookmarksCard.style.display = 'none';
+    el.libraryBtn.classList.remove('show');
+    refreshLibraryList();
+  }
+  el.libraryBtn.addEventListener('click', showLibraryHome);
+
+  refreshLibraryList();
+
+  /* ---------- ORP rendering ---------- */
+  function orpIndex(word){
+    var len = word.length;
+    if(len <= 1) return 0;
+    if(len <= 4) return 1;
+    if(len <= 8) return 2;
+    if(len <= 11) return 3;
+    return Math.min(4, len - 1);
+  }
+
+  function renderWord(){
+    var total = state.words.length;
+    if(total === 0){
+      el.wordDisplay.textContent = '';
+      el.cornerProgress.textContent = '';
+      el.emptyMsg.style.display = 'block';
+      el.wordCounter.textContent = '0 / 0';
+      el.timeLeft.textContent = 'осталось: —';
+      el.progressFill.style.width = '0%';
+      return;
+    }
+    el.emptyMsg.style.display = 'none';
+    var chunkWords = state.words.slice(state.index, state.index + state.chunk);
+    var html = chunkWords.map(function(w){
+      var oi = orpIndex(w);
+      var before = w.slice(0, oi);
+      var mid = w.slice(oi, oi + 1);
+      var after = w.slice(oi + 1);
+      return escapeHtml(before) + '<span class="orp">' + escapeHtml(mid) + '</span>' + escapeHtml(after);
+    }).join(' ');
+    el.wordDisplay.innerHTML = html;
+    fitWordToStage();
+
+    var lastShown = Math.min(state.index + chunkWords.length, total);
+    var pct = Math.round((state.index / Math.max(1, total - 1)) * 100);
+    el.wordCounter.textContent = chunkWords.length > 1
+      ? (state.index + 1) + '–' + lastShown + ' / ' + total
+      : (state.index + 1) + ' / ' + total;
+    var remaining = total - lastShown;
+    var secs = Math.round(remaining / (state.wpm / 60));
+    el.timeLeft.textContent = 'осталось: ' + formatTime(secs);
+    el.progressFill.style.width = pct + '%';
+    el.cornerProgress.textContent = pct + '%';
+
+    safeSet('reader_pos_' + state.bookKey, String(state.index));
+  }
+
+  /* Shrinks the word display (never breaks letters apart) so the whole
+     word or word-group always stays fully visible inside the stage. */
+  function fitWordToStage(){
+    if(!el.stage || !el.wordDisplay) return;
+    el.wordDisplay.style.transform = 'scale(1)';
+    requestAnimationFrame(function(){
+      if(!el.stage || !el.wordDisplay) return;
+      var stageRect = el.stage.getBoundingClientRect();
+      var wordRect = el.wordDisplay.getBoundingClientRect();
+      if(wordRect.width === 0 || wordRect.height === 0) return;
+      var availW = stageRect.width * 0.94;
+      var availH = stageRect.height * 0.9;
+      // No minimum floor: however many words are shown at once, every one
+      // of them must shrink to fit whole — never cropped in half.
+      var scale = Math.min(1, availW / wordRect.width, availH / wordRect.height);
+      el.wordDisplay.style.transform = 'scale(' + Math.max(scale, 0.01) + ')';
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function formatTime(secs){
+    if(!isFinite(secs) || secs < 0) secs = 0;
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return m + ' мин ' + (s < 10 ? '0' : '') + s + ' с';
+  }
+
+  /* ---------- Playback ---------- */
+  function play(){
+    if(state.words.length === 0) return;
+    if(state.index >= state.words.length - 1) state.index = 0;
+    state.playing = true;
+    el.playBtn.textContent = '⏸';
+    scheduleNext();
+  }
+  function pause(){
+    state.playing = false;
+    el.playBtn.textContent = '▶';
+    if(state.timer){ clearTimeout(state.timer); state.timer = null; }
+  }
+  function toggle(){ state.playing ? pause() : play(); }
+
+  function scheduleNext(){
+    if(!state.playing) return;
+    var chunkWords = state.words.slice(state.index, state.index + state.chunk);
+    var lastWord = chunkWords[chunkWords.length - 1] || '';
+    var base = 60000 / state.wpm;
+    var factor = 1;
+    if(/[,;:]$/.test(lastWord)) factor = 1.4;
+    if(/[.!?…]$/.test(lastWord)) factor = 2.0;
+    if(lastWord.length > 9) factor *= 1.15;
+    var duration = base * Math.max(1, chunkWords.length) * factor;
+    state.timer = setTimeout(function(){
+      var nextIndex = state.index + state.chunk;
+      if(nextIndex < state.words.length){
+        state.index = nextIndex;
+        renderWord();
+        scheduleNext();
+      } else {
+        pause();
+      }
+    }, duration);
+  }
+
+  function step(deltaFlashes){
+    pause();
+    var deltaWords = deltaFlashes * state.chunk;
+    state.index = Math.max(0, Math.min(state.words.length - 1, state.index + deltaWords));
+    renderWord();
+  }
+  function stepWords(deltaWords){
+    pause();
+    state.index = Math.max(0, Math.min(state.words.length - 1, state.index + deltaWords));
+    renderWord();
+  }
+
+  el.playBtn.addEventListener('click', toggle);
+  el.backBtn.addEventListener('click', function(){ stepWords(-10); });
+  el.fwdBtn.addEventListener('click', function(){ stepWords(10); });
+
+  /* Swipe left/right on the reading screen to flip forward/back through
+     what you've already read, just like turning a page. */
+  (function initStageSwipe(){
+    if(!el.stage) return;
+    var startX = 0, startY = 0, tracking = false;
+    el.stage.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+    el.stage.addEventListener('touchend', function(e){
+      if(!tracking) return;
+      tracking = false;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - startX;
+      var dy = touch.clientY - startY;
+      if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.6){
+        if(dx < 0) step(1); else step(-1);
+      }
+    }, { passive: true });
+  })();
+
+  el.progressBar.addEventListener('click', function(e){
+    var rect = el.progressBar.getBoundingClientRect();
+    var ratio = (e.clientX - rect.left) / rect.width;
+    pause();
+    state.index = Math.max(0, Math.min(state.words.length - 1, Math.round(ratio * (state.words.length - 1))));
+    renderWord();
+  });
+
+  /* ---------- Speed / size / font controls ---------- */
+  el.speedSlider.addEventListener('input', function(){
+    state.wpm = parseInt(el.speedSlider.value, 10);
+    el.speedVal.textContent = state.wpm + ' сл/мин';
+    safeSet('reader_wpm', String(state.wpm));
+    renderWord();
+  });
+  function setSize(v){
+    state.wordSize = Math.max(1, Math.min(60, v));
+    document.documentElement.style.setProperty('--wordsize', state.wordSize + 'rem');
+    if(state.wordSize <= 30) el.sizeSlider.value = state.wordSize;
+    el.sizeVal.textContent = state.wordSize.toFixed(1);
+    safeSet('reader_size', String(state.wordSize));
+    fitWordToStage();
+  }
+  el.sizeUp.addEventListener('click', function(){ setSize(state.wordSize + 0.4); });
+  el.sizeDown.addEventListener('click', function(){ setSize(state.wordSize - 0.4); });
+  el.sizeSlider.addEventListener('input', function(){ setSize(parseFloat(el.sizeSlider.value)); });
+
+  /* ---------- Letter color: black or white, with a thin contrasting outline ---------- */
+  function setLetterColor(mode){
+    var fill = mode === 'black' ? '#141414' : '#fafaf7';
+    var stroke = mode === 'black' ? '#fafaf7' : '#141414';
+    document.documentElement.style.setProperty('--word-fill', fill);
+    document.documentElement.style.setProperty('--word-stroke', stroke);
+    safeSet('reader_letter_color', mode);
+    Array.prototype.forEach.call(el.letterColorSet.querySelectorAll('.pill-btn'), function(b){
+      b.classList.toggle('active', b.dataset.letter === mode);
+    });
+  }
+  el.letterColorSet.addEventListener('click', function(e){
+    var btn = e.target.closest('.pill-btn');
+    if(btn) setLetterColor(btn.dataset.letter);
+  });
+
+  /* ---------- Background: emerald (default), white or black ---------- */
+  var BG_PRESETS = {
+    green: { bg:'#06251b', bg2:'#0a3526', surface:'#0c3c2b', ink:'#f4efe0', muted:'#a9c9ba', line:'#1c5340' },
+    white: { bg:'#ffffff', bg2:'#f4f4f2', surface:'#ffffff', ink:'#141414', muted:'#5b5b5b', line:'#dcdcd8' },
+    black: { bg:'#000000', bg2:'#0a0a0a', surface:'#000000', ink:'#f2f2f2', muted:'#9a9a9a', line:'#262626' }
+  };
+  function setBackground(mode){
+    var p = BG_PRESETS[mode] || BG_PRESETS.green;
+    var root = document.documentElement.style;
+    root.setProperty('--bg', p.bg);
+    root.setProperty('--bg-2', p.bg2);
+    root.setProperty('--surface', p.surface);
+    root.setProperty('--ink', p.ink);
+    root.setProperty('--muted', p.muted);
+    root.setProperty('--line', p.line);
+    safeSet('reader_bg', mode);
+    Array.prototype.forEach.call(el.bgColorSet.querySelectorAll('.pill-btn'), function(b){
+      b.classList.toggle('active', b.dataset.bg === mode);
+    });
+  }
+  el.bgColorSet.addEventListener('click', function(e){
+    var btn = e.target.closest('.pill-btn');
+    if(btn) setBackground(btn.dataset.bg);
+  });
+
+  (function initAppearance(){
+    setLetterColor(safeGet('reader_letter_color') || 'white');
+    setBackground(safeGet('reader_bg') || 'green');
+  })();
+
+  function setChunk(v){
+    var n = parseInt(v, 10);
+    if(!n || n < 1) n = 1;
+    if(n > 50) n = 50;
+    state.chunk = n;
+    el.chunkInput.value = String(n);
+    safeSet('reader_chunk', String(n));
+    renderWord();
+  }
+  el.chunkInput.addEventListener('change', function(){ setChunk(el.chunkInput.value); });
+  el.chunkInput.addEventListener('input', function(){
+    var n = parseInt(el.chunkInput.value, 10);
+    if(n >= 1 && n <= 50){ state.chunk = n; renderWord(); }
+  });
+
+  el.fontSelect.addEventListener('change', function(){
+    state.fontMode = el.fontSelect.value;
+    applyFont(state.fontMode);
+    safeSet('reader_font', state.fontMode);
+  });
+
+  /* ---------- Immersive full-screen reading ---------- */
+  function setImmersive(on){
+    state.immersive = on;
+    document.body.classList.toggle('immersive', on);
+    el.immersiveExitBtn.classList.toggle('show', on);
+    if(on && document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(function(){});
+    } else if(!on && document.fullscreenElement && document.exitFullscreen){
+      document.exitFullscreen().catch(function(){});
+    }
+  }
+  el.immersiveBtn.addEventListener('click', function(){ setImmersive(true); setTimeout(fitWordToStage, 60); });
+  el.immersiveExitBtn.addEventListener('click', function(){ setImmersive(false); setTimeout(fitWordToStage, 60); });
+  el.pageImmersiveBtn.addEventListener('click', function(){ setImmersive(!state.immersive); });
+  document.addEventListener('fullscreenchange', function(){
+    if(!document.fullscreenElement && state.immersive){ setImmersive(false); }
+    setTimeout(fitWordToStage, 60);
+  });
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitWordToStage, 100);
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(document.activeElement === el.pasteBox) return;
+    if(e.code === 'Space'){ e.preventDefault(); toggle(); }
+    else if(e.code === 'ArrowLeft'){ step(-1); }
+    else if(e.code === 'ArrowRight'){ step(1); }
+    else if(e.code === 'ArrowUp'){ e.preventDefault(); el.speedSlider.value = Math.min(900, state.wpm + 25); el.speedSlider.dispatchEvent(new Event('input')); }
+    else if(e.code === 'ArrowDown'){ e.preventDefault(); el.speedSlider.value = Math.max(100, state.wpm - 25); el.speedSlider.dispatchEvent(new Event('input')); }
+  });
+
+  /* ---------- File loading ---------- */
+  el.dropZone.addEventListener('click', function(){ el.fileInput.click(); });
+  el.dropZone.addEventListener('dragover', function(e){ e.preventDefault(); el.dropZone.classList.add('drag'); });
+  el.dropZone.addEventListener('dragleave', function(){ el.dropZone.classList.remove('drag'); });
+  el.dropZone.addEventListener('drop', function(e){
+    e.preventDefault();
+    el.dropZone.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  el.fileInput.addEventListener('change', function(){
+    if(el.fileInput.files && el.fileInput.files[0]) handleFile(el.fileInput.files[0]);
+  });
+  el.loadPasted.addEventListener('click', function(){
+    var text = el.pasteBox.value.trim();
+    if(!text){ el.loadStatus.textContent = 'Сначала вставьте текст.'; return; }
+    el.loadStatus.textContent = '';
+    var preview = text.split(/\s+/).slice(0, 6).join(' ');
+    loadText(text, 'pasted:' + hashStr(text), preview + '…');
+  });
+
+  function hashStr(s){
+    var h = 0;
+    for(var i=0; i<s.length; i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+    return h;
+  }
+
+  function handleFile(file){
+    var name = file.name || 'book';
+    var lower = name.toLowerCase();
+    el.loadStatus.textContent = 'Загрузка «' + name + '»…';
+
+    if(lower.endsWith('.pdf')){
+      loadPdf(file, name);
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(){
+      el.loadStatus.textContent = '';
+      loadText(String(reader.result), 'file:' + name + ':' + file.size, name);
+    };
+    reader.onerror = function(){
+      el.loadStatus.textContent = 'Не удалось прочитать файл.';
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function loadPdf(file, name){
+    if(typeof window.pdfjsLib === 'undefined'){
+      el.loadStatus.textContent = 'Библиотека PDF недоступна офлайн. Подключитесь к интернету один раз или вставьте текст вручную.';
+      return;
+    }
+    try{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }catch(e){}
+
+    var reader = new FileReader();
+    reader.onload = function(){
+      var typedArray = new Uint8Array(reader.result);
+      window.pdfjsLib.getDocument({ data: typedArray }).promise.then(function(pdf){
+        var pagesText = [];
+        var pagePromise = Promise.resolve();
+        var pageCount = pdf.numPages;
+        function readPage(n){
+          return pdf.getPage(n).then(function(page){
+            return page.getTextContent();
+          }).then(function(content){
+            var txt = content.items.map(function(it){ return it.str; }).join(' ');
+            pagesText[n-1] = txt;
+            el.loadStatus.textContent = 'Распознано страниц: ' + n + ' / ' + pageCount;
+          });
+        }
+        for(var i=1; i<=pageCount; i++){
+          pagePromise = pagePromise.then(readPage.bind(null, i));
+        }
+        pagePromise.then(function(){
+          el.loadStatus.textContent = '';
+          loadText(pagesText.join(' \n\n '), 'pdf:' + name + ':' + file.size, name);
+        }).catch(function(err){
+          el.loadStatus.textContent = 'Ошибка чтения PDF: ' + (err && err.message ? err.message : err);
+        });
+      }).catch(function(err){
+        el.loadStatus.textContent = 'Не удалось открыть PDF: ' + (err && err.message ? err.message : err);
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /* ---------- Resume the last book automatically on open ---------- */
+  (function tryAutoResume(){
+    var lastId = safeGet('reader_last_book_id');
+    if(!lastId) return;
+    dbGetBook(lastId).then(function(rec){
+      if(rec) loadText(rec.text, rec.id, rec.name);
+    }).catch(function(){});
+  })();
+
+  /* ---------- Full page view: real pages you can flip and jump to ---------- */
+  function totalPages(){
+    return Math.max(1, Math.ceil(state.words.length / WORDS_PER_PAGE));
+  }
+  function pageStartIndex(n){
+    return (Math.max(1, n) - 1) * WORDS_PER_PAGE;
+  }
+  function buildPageHtml(pageNum){
+    var total = state.words.length;
+    if(total === 0) return '';
+    var start = pageStartIndex(pageNum);
+    var end = Math.min(total, start + WORDS_PER_PAGE);
+    var parts = [];
+    for(var i = start; i < end; i++){
+      var cls = (i >= state.index && i < state.index + state.chunk) ? ' class="page-current"' : '';
+      parts.push('<span' + cls + ' data-i="' + i + '">' + escapeHtml(state.words[i]) + '</span>');
+    }
+    return parts.join(' ');
+  }
+  function renderPageNow(scrollToCurrent){
+    var tp = totalPages();
+    state.pageNum = Math.max(1, Math.min(tp, state.pageNum));
+    el.pageText.innerHTML = buildPageHtml(state.pageNum);
+    el.pageNumInput.value = state.pageNum;
+    el.pageNumInput.max = tp;
+    el.pageOfLabel.textContent = 'из ' + tp;
+    el.pageClickedWord = null;
+    if(scrollToCurrent){
+      requestAnimationFrame(function(){
+        var cur = el.pageText.querySelector('.page-current');
+        if(cur) cur.scrollIntoView({ block: 'center' });
+        else el.pageScroll.scrollTop = 0;
+      });
+    } else {
+      el.pageScroll.scrollTop = 0;
+    }
+  }
+  function openPageView(){
+    if(state.words.length === 0) return;
+    pause();
+    state.pageNum = Math.floor(state.index / WORDS_PER_PAGE) + 1;
+    el.pageSizeSlider.value = state.pageFontSize;
+    el.pageText.style.fontSize = state.pageFontSize + 'rem';
+    el.pageOverlay.classList.add('show');
+    renderPageNow(true);
+  }
+  function closePageView(resumeFromHere){
+    if(resumeFromHere){
+      var clicked = el.pageClickedWord;
+      var target = clicked ? parseInt(clicked.dataset.i, 10) : pageStartIndex(state.pageNum);
+      if(!isNaN(target)){
+        state.index = Math.max(0, Math.min(state.words.length - 1, target));
+        renderWord();
+      }
+    }
+    el.pageClickedWord = null;
+    el.pageOverlay.classList.remove('show');
+  }
+  el.pageViewBtn.addEventListener('click', openPageView);
+  el.pageBackBtn.addEventListener('click', function(){ closePageView(false); });
+  el.pageResumeBtn.addEventListener('click', function(){ closePageView(true); });
+  el.pageText.addEventListener('click', function(e){
+    var span = e.target.closest('span[data-i]');
+    if(span) el.pageClickedWord = span;
+  });
+  el.pageSizeSlider.addEventListener('input', function(){
+    state.pageFontSize = parseFloat(el.pageSizeSlider.value);
+    el.pageText.style.fontSize = state.pageFontSize + 'rem';
+    safeSet('reader_page_font', String(state.pageFontSize));
+  });
+  (function initPageFont(){
+    state.pageFontSize = parseFloat(safeGet('reader_page_font') || '1.15');
+  })();
+
+  /* Turning pages forward/back, and jumping straight to any page number */
+  function goPrevPage(){
+    state.pageNum = Math.max(1, state.pageNum - 1);
+    renderPageNow(false);
+  }
+  function goNextPage(){
+    state.pageNum = Math.min(totalPages(), state.pageNum + 1);
+    renderPageNow(false);
+  }
+  el.pagePrevBtn.addEventListener('click', goPrevPage);
+  el.pageNextBtn.addEventListener('click', goNextPage);
+  function jumpToPageInput(){
+    var n = parseInt(el.pageNumInput.value, 10);
+    if(!n || n < 1) n = 1;
+    state.pageNum = Math.min(totalPages(), n);
+    renderPageNow(false);
+  }
+  el.pageNumInput.addEventListener('change', jumpToPageInput);
+  el.pageNumInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') jumpToPageInput();
+  });
+
+  /* Swipe left/right on the page to turn it, like a real book */
+  (function initPageSwipe(){
+    var startX = 0, startY = 0, tracking = false;
+    el.pageScroll.addEventListener('touchstart', function(e){
+      if(e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+    el.pageScroll.addEventListener('touchend', function(e){
+      if(!tracking) return;
+      tracking = false;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - startX;
+      var dy = touch.clientY - startY;
+      if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6){
+        if(dx < 0) goNextPage(); else goPrevPage();
+      }
+    }, { passive: true });
+  })();
+
+  /* Adding a bookmark at the page currently open */
+  el.pageBookmarkBtn.addEventListener('click', function(){
+    if(!state.bookKey) return;
+    var startIdx = pageStartIndex(state.pageNum);
+    var endIdx = Math.min(state.words.length, startIdx + WORDS_PER_PAGE);
+    var pageWords = state.words.slice(startIdx, endIdx);
+    var fullPageText = pageWords.join(' ');
+    var preview = pageWords.slice(0, 8).join(' ');
+    dbAddBookmark({
+      bookId: state.bookKey,
+      bookName: state.bookName,
+      wordIndex: startIdx,
+      pageNumber: state.pageNum,
+      preview: preview,
+      pageText: fullPageText,
+      savedAt: Date.now()
+    }).then(function(){
+      el.pageBookmarkBtn.textContent = '✓ Добавлено';
+      setTimeout(function(){ el.pageBookmarkBtn.textContent = '🔖 Добавить закладку'; }, 1400);
+    }).catch(function(){});
+  });
+
+  /* ---------- Озвучивание всей книги (Android Chrome TTS) ---------- */
+  var speech = { chunks: [], chunkIndex: 0, active: false, paused: false, generation: 0, voices: [] };
+  function speechAvailable(){ return ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window); }
+  function updateVoiceStatus(message){ if(el.voiceStatus) el.voiceStatus.textContent = message; }
+  function detectSpeechLanguage(){
+    var lang = el.voiceLanguage.value;
+    if(lang !== 'auto') return lang;
+    var sample = state.words.slice(state.index, Math.min(state.index + 80, state.words.length)).join(' ');
+    return /[\u0600-\u06FF]/.test(sample) ? 'ar' : 'ru-RU';
+  }
+  function makeSpeechChunks(){
+    var chunks = [], current = '', starts = [], wordIndex = state.index;
+    for(var i=state.index;i<state.words.length;i++){
+      var w=state.words[i];
+      if(current && (current.length + w.length + 1 > 220 || /[.!?؟؛…]$/.test(current))){
+        chunks.push({text:current,start:wordIndex}); current=''; wordIndex=i;
+      }
+      current += (current ? ' ' : '') + w;
+    }
+    if(current) chunks.push({text:current,start:wordIndex});
+    return chunks;
+  }
+  function stopSpeech(quiet){
+    speech.generation++; speech.active=false; speech.paused=false; speech.chunks=[]; speech.chunkIndex=0;
+    if(speechAvailable()) window.speechSynthesis.cancel();
+    if(el.voicePlay) el.voicePlay.textContent='▶ Читать';
+    if(!quiet) updateVoiceStatus('Озвучивание остановлено');
+  }
+  function speakNext(generation){
+    if(!speech.active || speech.paused || generation !== speech.generation) return;
+    if(speech.chunkIndex >= speech.chunks.length){
+      speech.active=false; el.voicePlay.textContent='▶ Читать'; updateVoiceStatus('Книга дочитана до конца'); return;
+    }
+    var item=speech.chunks[speech.chunkIndex];
+    var utterance=new SpeechSynthesisUtterance(item.text);
+    utterance.lang=detectSpeechLanguage();
+    utterance.rate=parseFloat(el.voiceRate.value)||1;
+    var matching=speech.voices.filter(function(v){return v.lang && (v.lang.toLowerCase()===utterance.lang.toLowerCase() || (utterance.lang==='ar' && v.lang.toLowerCase().indexOf('ar')===0));});
+    if(matching.length) utterance.voice=matching[0];
+    utterance.onstart=function(){ if(generation===speech.generation) updateVoiceStatus('Читаю: фрагмент '+(speech.chunkIndex+1)+' из '+speech.chunks.length+' · '+utterance.lang); };
+    utterance.onend=function(){
+      if(generation!==speech.generation || !speech.active || speech.paused) return;
+      state.index=Math.min(state.words.length-1,item.start);
+      renderWord();
+      speech.chunkIndex++;
+      speakNext(generation);
+    };
+    utterance.onerror=function(event){
+      if(generation!==speech.generation) return;
+      if(event.error==='canceled' || event.error==='interrupted') return;
+      speech.active=false; el.voicePlay.textContent='▶ Читать';
+      updateVoiceStatus('Не удалось запустить голос. Проверьте движок озвучивания и языковой пакет Android.');
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+  function startSpeech(){
+    if(!speechAvailable()){ updateVoiceStatus('Этот браузер не поддерживает озвучивание. Откройте файл в Google Chrome.'); return; }
+    if(!state.words.length){ updateVoiceStatus('Сначала откройте книгу или вставьте текст'); return; }
+    stopSpeech(true);
+    speech.chunks=makeSpeechChunks(); speech.chunkIndex=0; speech.active=true; speech.paused=false;
+    el.voicePlay.textContent='▶ Продолжить';
+    var gen=speech.generation;
+    updateVoiceStatus('Подготавливаю голос…');
+    // Chrome on Android can populate its voice list asynchronously.
+    speech.voices=window.speechSynthesis.getVoices()||[];
+    speakNext(gen);
+  }
+  function seekSpeech(delta){
+    if(!state.words.length) return;
+    var wasActive=speech.active;
+    stopSpeech(true);
+    state.index=Math.max(0,Math.min(state.words.length-1,state.index+delta));
+    renderWord();
+    if(wasActive) startSpeech(); else updateVoiceStatus('Позиция изменена. Нажмите «Читать»');
+  }
+  if(speechAvailable()){
+    speech.voices=window.speechSynthesis.getVoices()||[];
+    window.speechSynthesis.addEventListener && window.speechSynthesis.addEventListener('voiceschanged',function(){speech.voices=window.speechSynthesis.getVoices()||[];});
+  }
+  el.voicePlay.addEventListener('click',function(){
+    if(speech.paused && speechAvailable()){
+      speech.paused=false; speech.active=true; window.speechSynthesis.resume(); el.voicePlay.textContent='▶ Продолжить'; updateVoiceStatus('Продолжаю чтение');
+    } else if(speech.active){ return; } else startSpeech();
+  });
+  el.voicePause.addEventListener('click',function(){
+    if(!speechAvailable() || !speech.active) return;
+    speech.paused=true; window.speechSynthesis.pause(); updateVoiceStatus('Пауза');
+  });
+  el.voiceStop.addEventListener('click',function(){stopSpeech(false);});
+  el.voiceBack.addEventListener('click',function(){seekSpeech(-10);});
+  el.voiceForward.addEventListener('click',function(){seekSpeech(10);});
+  el.voiceRate.addEventListener('input',function(){el.voiceRateValue.textContent=parseFloat(el.voiceRate.value).toFixed(1)+'×';});
+  // Stop speech when a different book is loaded; do not interfere with the visual speed reader.
+  var originalLoadText=loadText;
+  loadText=function(text,key,name,forcedIndex){stopSpeech(true);originalLoadText(text,key,name,forcedIndex);};
+
+  /* initial render */
+  renderWord();
+})();
+</script>
